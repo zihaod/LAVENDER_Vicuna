@@ -35,7 +35,6 @@ class LAVI(nn.Module):
     ):
         super().__init__()
 
-        self.tokenizer = self.init_tokenizer()
         self.low_resource = low_resource
 
         print('Loading Vision Encoder')
