@@ -96,15 +96,11 @@ class Dataset_Pretrain(Dataset_Base):
 
         #txt, mask = self.str2txt(raw_txt)
 
-        sample = {
-            "image": img,
-            "text_input": raw_txt,
-        }
-
         #return img, txt, mask
-        return sample
+        return img, raw_txt
 
     def collate_batch(self, inputs):
+        
         img, txt = map(list, unzip(inputs))
         all_imgs = T.stack(img, dim=0)
         all_txts = txt #T.stack(txt, dim=0)
