@@ -568,11 +568,10 @@ class SwinTransformer3D(nn.Module):
             raise TypeError('pretrained must be a str or None')
 
 
-def get_vidswin_model(
-    size_img,
-    vis_backbone_size,
-    vis_backbone_init,
-    kinetics):
+def get_vidswin_model(size_img,
+                      vis_backbone_size,
+                      vis_backbone_init,
+                      kinetics):
         
     if int(size_img) == 384:
         assert vis_backbone_size == "large"
