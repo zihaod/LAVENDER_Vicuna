@@ -1,220 +1,138 @@
-import logging
-import random
+from utils.lib import *
+from visbackbone.video_swin import get_vidswin_model
 
-import torch
-from torch.cuda.amp import autocast as autocast
-import torch.nn as nn
+class EncVideo(T.nn.Module):
 
-#from minigpt4.common.registry import registry
-#from minigpt4.models.blip2 import Blip2Base, disabled_train
-from llama_model import LlamaForCausalLM
-from lavender_model import EncVideo
-from transformers import LlamaTokenizer
-
-
-class LAVI(nn.Module):
-    """
-    LAVENDER GPT-LLAMA model.
-    """
-
-    PRETRAINED_MODEL_CONFIG_DICT = {
-        "pretrain_vicuna": "configs/models/minigpt4.yaml",
-    }
-
-    def __init__(
-        self,
-        args,
-        vis_hidden_size=768,
-        llama_model="",
-        prompt_path="",
-        prompt_template="",
-        max_txt_len=32,
-        end_sym='\n',
-        low_resource=False,  # use 8 bit and put vit in cpu
-        device_8bit=0,  # the device of 8bit model should be set when loading and cannot be changed anymore.
-    ):
+    def __init__(self, args, hidden_size):
         super().__init__()
+        self.swin = get_vidswin_model(args)
+        self.latent_feat_size = self.swin.norm.normalized_shape[0]
+        self.img_feature_dim = hidden_size
+        self.swinbert = getattr(args, 'swinbert', False)
+        self.max_size_frame = getattr(args, 'max_size_frame', 6)  # 5
+        self.max_size_patch = getattr(args, 'max_size_patch', 14)  # 7
 
-        self.low_resource = low_resource
-
-        print('Loading Vision Encoder')
-        self.visual_encoder = EncVideo(args, vis_hidden_size)
-
-        for name, param in self.visual_encoder.named_parameters():
-            param.requires_grad = False
-        self.visual_encoder = self.visual_encoder.eval()
-
-        print('Loading Vision Encoder Done')
-
-        print('Loading LLAMA')
-        self.llama_tokenizer = LlamaTokenizer.from_pretrained(llama_model, use_fast=False)
-        self.llama_tokenizer.pad_token = self.llama_tokenizer.eos_token
-
-        if self.low_resource:
-            self.llama_model = LlamaForCausalLM.from_pretrained(
-                llama_model,
-                torch_dtype=torch.float16,
-                load_in_8bit=True,
-                device_map={'': device_8bit}
-            )
+        if not self.swinbert:
+            if self.latent_feat_size != self.img_feature_dim:
+                self.fc = T.nn.Linear(
+                    self.latent_feat_size, self.img_feature_dim)
+            else:
+                self.fc = None
+            self.emb_cls = T.nn.Parameter(
+                    0.02*T.randn(1, 1, 1, self.img_feature_dim))
+            self.emb_pos = T.nn.Parameter(
+                0.02*T.randn(
+                    1, 1, 1+self.max_size_patch**2, self.img_feature_dim))
+            self.emb_len = T.nn.Parameter(
+                0.02*T.randn(
+                    1, self.max_size_frame, 1, self.img_feature_dim))
+            self.emb_odr = T.nn.Parameter(
+                0.02*T.randn(1, 1, 1, self.img_feature_dim))
+            self.norm = T.nn.LayerNorm(self.img_feature_dim)
         else:
-            self.llama_model = LlamaForCausalLM.from_pretrained(
-                llama_model,
-                torch_dtype=torch.float16,
-            )
+            self.fc = T.nn.Linear(self.latent_feat_size, 512)
+            self.img_embedding = T.nn.Linear(512, self.img_feature_dim)
+        self.transform_normalize = None
 
-        for name, param in self.llama_model.named_parameters():
-            param.requires_grad = False
-        print('Loading LLAMA Done')
+    def forward(self, img, odr=None, vt_mask=None):
+        _B, _T, _C, _H, _W = img.shape
+        _h, _w = _H//32, _W//32
 
-        self.llama_proj = nn.Linear(
-            self.visual_encoder.img_feature_dim, self.llama_model.config.hidden_size
-        )
-        self.max_txt_len = max_txt_len
-        self.end_sym = end_sym
+        if self.transform_normalize is not None:
+            img = self.transform_normalize(img)
 
-        if prompt_path:
-            with open(prompt_path, 'r') as f:
-                raw_prompts = f.read().splitlines()
-            filted_prompts = [raw_prompt for raw_prompt in raw_prompts if "<ImageHere>" in raw_prompt]
-            self.prompt_list = [prompt_template.format(p) for p in filted_prompts]
-            print('Load {} training prompts'.format(len(self.prompt_list)))
-            print('Prompt Example \n{}'.format(random.choice(self.prompt_list)))
+        f_img = self.swin(img.transpose(1, 2)).transpose(1, 2)
+        f_img = f_img.permute(0, 1, 3, 4, 2).view(
+            [_B, _T, _h*_w, self.latent_feat_size])
+
+        if self.fc is not None:
+            f_img = self.fc(f_img)
+
+        # for swinbert initialized
+        if self.swinbert:
+            f_img = self.img_embedding(f_img)
+            fake_cls_token = T.zeros(
+                (_B, _T, 1, self.img_feature_dim), dtype=f_img.dtype,
+                device=f_img.device)
+            f_img = T.cat([fake_cls_token, f_img], dim=2)
+
+            m_img = T.ones(_h*_w).long().cuda().unsqueeze(0).unsqueeze(0)
+            m_img = m_img.expand([_B, _T, -1]).contiguous()
+            fake_cls_mask = T.zeros((_B, _T, 1), dtype=m_img.dtype,
+                                    device=m_img.device)
+            m_img = T.cat([fake_cls_mask, m_img], dim=2)
+
+            f_img = f_img.view([_B, _T*(1+_h*_w), -1])
+            m_img = m_img.view([_B, _T*(1+_h*_w)])
+            return f_img, m_img
+
+        f_img = T.cat([self.emb_cls.expand([_B, _T, -1, -1]), f_img], dim=2)
+        f_img += self.emb_pos.expand([_B, _T, -1, -1])[:, :, :1+_h*_w, :]
+
+        if odr is not None:
+            emb_len = []  # feed order
+            for b in range(_B):
+                tmp = T.cat([
+                    self.emb_len[:, i:i+1, :, :]
+                    if i == p else self.emb_odr
+                    for i, p in enumerate(odr[b])], dim=1)
+                emb_len.append(tmp)
+            emb_len = T.cat(emb_len, dim=0)
+            f_img += emb_len
+
         else:
-            self.prompt_list = []
+            f_img += self.emb_len.expand([_B, -1, 1+_h*_w, -1])[:, :_T, :, :]
 
-    def vit_to_cpu(self):
-        self.visual_encoder.to("cpu")
-        self.visual_encoder.float()
+        f_img = self.norm(f_img).view([_B, _T*(1+_h*_w), -1])
 
-    def encode_img(self, image):
-        device = image.device
-        if self.low_resource:
-            self.vit_to_cpu()
-            image = image.to("cpu")
+        m_img = T.ones(1+_h*_w).long().cuda().unsqueeze(0).unsqueeze(0)
+        m_img = m_img.expand([_B, _T, -1]).contiguous()
+        if vt_mask is not None:
+            m_img = m_img * vt_mask
+        m_img = m_img.view([_B, _T*(1+_h*_w)])
 
-        #with self.maybe_autocast():
-        vis_embeds = self.visual_encoder(image)[0].to(device)
-        inputs_llama = self.llama_proj(vis_embeds)
-        atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image.device)
-        return inputs_llama, atts_llama
+        return f_img, m_img
 
-    def prompt_wrap(self, img_embeds, atts_img, prompt):
-        if prompt:
-            batch_size = img_embeds.shape[0]
-            p_before, p_after = prompt.split('<ImageHere>')
-            p_before_tokens = self.llama_tokenizer(
-                p_before, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
-            p_after_tokens = self.llama_tokenizer(
-                p_after, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
-            p_before_embeds = self.llama_model.model.embed_tokens(p_before_tokens.input_ids).expand(batch_size, -1, -1)
-            p_after_embeds = self.llama_model.model.embed_tokens(p_after_tokens.input_ids).expand(batch_size, -1, -1)
-            wrapped_img_embeds = torch.cat([p_before_embeds, img_embeds, p_after_embeds], dim=1)
-            wrapped_atts_img = atts_img[:, :1].expand(-1, wrapped_img_embeds.shape[1])
-            return wrapped_img_embeds, wrapped_atts_img
-        else:
-            return img_embeds, atts_img
+    def load_vis_ckpt_from_lavender(self, loaded_state_dict):
+        model_keys = set([k for k in list(self.state_dict().keys())])
+        load_keys = set(loaded_state_dict.keys())
 
-    def forward(self, samples):
-        image = samples["image"]
-        img_embeds, atts_img = self.encode_img(image)
-        if hasattr(samples, 'question_split'):  # VQA dataset
-            print('VQA Batch')
-            vqa_prompt = '###Human: <Img><ImageHere></Img> '
-            img_embeds, atts_img = self.prompt_wrap(img_embeds, atts_img, vqa_prompt)
-        elif self.prompt_list:
-            prompt = random.choice(self.prompt_list)
-            img_embeds, atts_img = self.prompt_wrap(img_embeds, atts_img, prompt)
+        for k in load_keys:
+            if k.startswith('enc_img.'):
+                loaded_state_dict[k[len('enc_img.'):]] = loaded_state_dict[k]
+                del loaded_state_dict[k]
+        load_keys = set(loaded_state_dict.keys())
 
-        self.llama_tokenizer.padding_side = "right"
+        toload = {}
+        mismatched_shape_keys = []
+        for k in model_keys:
+            if k in load_keys:
+                if self.state_dict()[k].shape != loaded_state_dict[k].shape:
+                    mismatched_shape_keys.append(
+                        (k, loaded_state_dict[k].shape,
+                         self.state_dict()[k].shape))
+                else:
+                    toload[k] = loaded_state_dict[k]
 
-        text = [t + self.end_sym for t in samples["text_input"]]
+        print("You can ignore the keys with `position_ids` or from task heads")
+        strct_loading = True
+        unexpected = load_keys.difference(model_keys)
+        if len(unexpected):
+            strct_loading = False
+            print("=========================Unexpected==================================")
+            print(f"\tIn total {len(unexpected)}, {sorted(unexpected)}")
 
-        to_regress_tokens = self.llama_tokenizer(
-            text,
-            return_tensors="pt",
-            padding="longest",
-            truncation=True,
-            max_length=self.max_txt_len,
-            add_special_tokens=False
-        ).to(image.device)
+        missing = model_keys.difference(load_keys)
+        if len(missing):
+            strct_loading = False
+            print("===========================Missing===================================")
+            print(f"\tIn total {len(missing)}, {sorted(missing)}")
 
-        targets = to_regress_tokens.input_ids.masked_fill(
-            to_regress_tokens.input_ids == self.llama_tokenizer.pad_token_id, -100
-        )
+        if len(mismatched_shape_keys):
+            strct_loading = False
+            print("======================Shape Mismatched===============================")
+            print(f"\tIn total {len(mismatched_shape_keys)}, "
+                  f"{sorted(mismatched_shape_keys)}")
 
-        empty_targets = (
-            torch.ones([atts_img.shape[0], atts_img.shape[1]+1],
-                       dtype=torch.long).to(image.device).fill_(-100)  # plus one for bos
-        )
-        targets = torch.cat([empty_targets, targets], dim=1)
 
-        batch_size = img_embeds.shape[0]
-        bos = torch.ones([batch_size, 1],
-                         dtype=to_regress_tokens.input_ids.dtype,
-                         device=to_regress_tokens.input_ids.device) * self.llama_tokenizer.bos_token_id
-        bos_embeds = self.llama_model.model.embed_tokens(bos)
-        atts_bos = atts_img[:, :1]
-
-        to_regress_embeds = self.llama_model.model.embed_tokens(to_regress_tokens.input_ids)
-        inputs_embeds = torch.cat([bos_embeds, img_embeds, to_regress_embeds], dim=1)
-        attention_mask = torch.cat([atts_bos, atts_img, to_regress_tokens.attention_mask], dim=1)
-
-        #with self.maybe_autocast():
-        outputs = self.llama_model(
-            inputs_embeds=inputs_embeds,
-            attention_mask=attention_mask,
-            return_dict=True,
-            labels=targets,
-        )
-        loss = outputs.loss
-
-        return {"loss": loss}
-
-    '''@classmethod
-    def from_config(cls, cfg):
-        vit_model = cfg.get("vit_model", "eva_clip_g")
-        q_former_model = cfg.get("q_former_model", "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/blip2_pretrained_flant5xxl.pth")
-        img_size = cfg.get("image_size")
-        num_query_token = cfg.get("num_query_token")
-        llama_model = cfg.get("llama_model")
-
-        drop_path_rate = cfg.get("drop_path_rate", 0)
-        use_grad_checkpoint = cfg.get("use_grad_checkpoint", False)
-        vit_precision = cfg.get("vit_precision", "fp16")
-        freeze_vit = cfg.get("freeze_vit", True)
-        freeze_qformer = cfg.get("freeze_qformer", True)
-        low_resource = cfg.get("low_resource", False)
-        device_8bit = cfg.get("device_8bit", 0)
-
-        prompt_path = cfg.get("prompt_path", "")
-        prompt_template = cfg.get("prompt_template", "")
-        max_txt_len = cfg.get("max_txt_len", 32)
-        end_sym = cfg.get("end_sym", '\n')
-
-        model = cls(
-            vit_model=vit_model,
-            q_former_model=q_former_model,
-            img_size=img_size,
-            drop_path_rate=drop_path_rate,
-            use_grad_checkpoint=use_grad_checkpoint,
-            vit_precision=vit_precision,
-            freeze_vit=freeze_vit,
-            freeze_qformer=freeze_qformer,
-            num_query_token=num_query_token,
-            llama_model=llama_model,
-            prompt_path=prompt_path,
-            prompt_template=prompt_template,
-            max_txt_len=max_txt_len,
-            end_sym=end_sym,
-            low_resource=low_resource,
-            device_8bit=device_8bit,
-        )
-
-        ckpt_path = cfg.get("ckpt", "")  # load weights of MiniGPT-4
-        if ckpt_path:
-            print("Load BLIP2-LLM Checkpoint: {}".format(ckpt_path))
-            ckpt = torch.load(ckpt_path, map_location="cpu")
-            msg = model.load_state_dict(ckpt['model'], strict=False)
-
-        return model'''
+        self.load_state_dict(toload, strict=strct_loading)
