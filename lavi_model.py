@@ -23,7 +23,12 @@ class LAVI(nn.Module):
 
     def __init__(
         self,
-        args,
+        max_size_frame=6,
+        max_size_patch=14,
+        size_img=224,
+        vis_backbone_size='base',
+        vis_backbone_init='3d',
+        kinetics=600,
         vis_hidden_size=768,
         llama_model="",
         prompt_path="",
@@ -38,7 +43,15 @@ class LAVI(nn.Module):
         self.low_resource = low_resource
 
         print('Loading Vision Encoder')
-        self.visual_encoder = EncVideo(args, vis_hidden_size)
+        self.visual_encoder = EncVideo(
+            max_size_frame,
+            max_size_patch,
+            size_img,
+            vis_backbone_size,
+            vis_backbone_init,
+            kinetics,
+            vis_hidden_size, 
+        )
 
         for name, param in self.visual_encoder.named_parameters():
             param.requires_grad = False
@@ -171,19 +184,17 @@ class LAVI(nn.Module):
 
         return {"loss": loss}
 
-    '''@classmethod
+    @classmethod
     def from_config(cls, cfg):
-        vit_model = cfg.get("vit_model", "eva_clip_g")
-        q_former_model = cfg.get("q_former_model", "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/blip2_pretrained_flant5xxl.pth")
-        img_size = cfg.get("image_size")
-        num_query_token = cfg.get("num_query_token")
+        max_size_frame = cfg.get("max_size_frame", 6)
+        max_size_patch = cfg.get("max_size_patch", 14)
+        size_img = cfg.get("size_img", 224)
+        vis_backbone_size = cfg.get("vis_backbone_size", 'base')
+        vis_backbone_init = cfg.get("vis_backbone_init", '3d')
+        kinetics = cfg.get("kinetics", 600)
+        vis_hidden_size = cfg.get("vis_hidden_size", 768)
         llama_model = cfg.get("llama_model")
 
-        drop_path_rate = cfg.get("drop_path_rate", 0)
-        use_grad_checkpoint = cfg.get("use_grad_checkpoint", False)
-        vit_precision = cfg.get("vit_precision", "fp16")
-        freeze_vit = cfg.get("freeze_vit", True)
-        freeze_qformer = cfg.get("freeze_qformer", True)
         low_resource = cfg.get("low_resource", False)
         device_8bit = cfg.get("device_8bit", 0)
 
@@ -193,15 +204,13 @@ class LAVI(nn.Module):
         end_sym = cfg.get("end_sym", '\n')
 
         model = cls(
-            vit_model=vit_model,
-            q_former_model=q_former_model,
-            img_size=img_size,
-            drop_path_rate=drop_path_rate,
-            use_grad_checkpoint=use_grad_checkpoint,
-            vit_precision=vit_precision,
-            freeze_vit=freeze_vit,
-            freeze_qformer=freeze_qformer,
-            num_query_token=num_query_token,
+            max_size_frame=max_size_frame,
+            max_size_patch=max_size_patch,
+            size_img=size_img,
+            vis_backbone_size=vis_backbone_size,
+            vis_backbone_init=vis_backbone_init,
+            kinetics=kinetics,
+            vis_hidden_size=vis_hidden_size,
             llama_model=llama_model,
             prompt_path=prompt_path,
             prompt_template=prompt_template,
@@ -211,10 +220,10 @@ class LAVI(nn.Module):
             device_8bit=device_8bit,
         )
 
-        ckpt_path = cfg.get("ckpt", "")  # load weights of MiniGPT-4
+        ckpt_path = cfg.get("ckpt", "")  # load weights of LAVI
         if ckpt_path:
             print("Load BLIP2-LLM Checkpoint: {}".format(ckpt_path))
             ckpt = torch.load(ckpt_path, map_location="cpu")
             msg = model.load_state_dict(ckpt['model'], strict=False)
 
-        return model'''
+        return model
