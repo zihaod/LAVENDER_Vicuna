@@ -572,8 +572,8 @@ def get_vidswin_model(
     size_img,
     vis_backbone_size,
     vis_backbone_init,
-    kinetics,
-):
+    kinetics):
+        
     if int(size_img) == 384:
         assert vis_backbone_size == "large"
         config_path = './visbackbone/swin_%s_384_patch244_window81212_kinetics600_22k.py' % (vis_backbone_size)
