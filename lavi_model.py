@@ -30,6 +30,7 @@ class LAVI(nn.Module):
         vis_backbone_init='3d',
         kinetics=600,
         vis_hidden_size=768,
+        lavender_model="",
         llama_model="",
         prompt_path="",
         prompt_template="",
@@ -52,6 +53,9 @@ class LAVI(nn.Module):
             kinetics,
             vis_hidden_size, 
         )
+        if lavender_model:
+            loaded_state_dict = T.load(lavender_model, map_location=T.device('cpu'))
+            self.visual_encoder.load_vis_ckpt_from_lavender(loaded_state_dict)
 
         for name, param in self.visual_encoder.named_parameters():
             param.requires_grad = False
@@ -193,6 +197,7 @@ class LAVI(nn.Module):
         vis_backbone_init = cfg.get("vis_backbone_init", '3d')
         kinetics = cfg.get("kinetics", 600)
         vis_hidden_size = cfg.get("vis_hidden_size", 768)
+        lavender_model = cfg.get("lavender_model", "")
         llama_model = cfg.get("llama_model")
 
         low_resource = cfg.get("low_resource", False)
@@ -211,6 +216,7 @@ class LAVI(nn.Module):
             vis_backbone_init=vis_backbone_init,
             kinetics=kinetics,
             vis_hidden_size=vis_hidden_size,
+            lavender_model=lavender_model,
             llama_model=llama_model,
             prompt_path=prompt_path,
             prompt_template=prompt_template,
@@ -222,7 +228,7 @@ class LAVI(nn.Module):
 
         ckpt_path = cfg.get("ckpt", "")  # load weights of LAVI
         if ckpt_path:
-            print("Load BLIP2-LLM Checkpoint: {}".format(ckpt_path))
+            print("Load LAVENDER-LLM Checkpoint: {}".format(ckpt_path))
             ckpt = torch.load(ckpt_path, map_location="cpu")
             msg = model.load_state_dict(ckpt['model'], strict=False)
 
