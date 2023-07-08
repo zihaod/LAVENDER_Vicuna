@@ -3,14 +3,28 @@ from visbackbone.video_swin import get_vidswin_model
 
 class EncVideo(T.nn.Module):
 
-    def __init__(self, args, hidden_size):
+    def __init__(
+        self, 
+        max_size_frame,
+        max_size_patch,
+        size_img,
+        vis_backbone_size,
+        vis_backbone_init,
+        kinetics,
+        hidden_size,
+    ):
         super().__init__()
-        self.swin = get_vidswin_model(args)
+        self.swin = get_vidswin_model(
+            size_img,
+            vis_backbone_size,
+            vis_backbone_init,
+            kinetics,
+        )
         self.latent_feat_size = self.swin.norm.normalized_shape[0]
         self.img_feature_dim = hidden_size
-        self.swinbert = getattr(args, 'swinbert', False)
-        self.max_size_frame = getattr(args, 'max_size_frame', 6)  # 5
-        self.max_size_patch = getattr(args, 'max_size_patch', 14)  # 7
+        #self.swinbert = getattr(args, 'swinbert', False)
+        self.max_size_frame = max_size_frame 
+        self.max_size_patch = max_size_patch 
 
         if not self.swinbert:
             if self.latent_feat_size != self.img_feature_dim:
