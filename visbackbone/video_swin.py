@@ -568,50 +568,55 @@ class SwinTransformer3D(nn.Module):
             raise TypeError('pretrained must be a str or None')
 
 
-def get_vidswin_model(args):
-    if int(args.size_img) == 384:
-        assert args.vis_backbone_size == "large"
-        config_path = './visbackbone/swin_%s_384_patch244_window81212_kinetics600_22k.py' % (args.vis_backbone_size)
-        if args.vis_backbone_init == "2d":
-            model_path = f'./_models/swin_transformer/swin_{args.vis_backbone_size}_patch4_window12_384_22k.pth'
+def get_vidswin_model(
+    size_img,
+    vis_backbone_size,
+    vis_backbone_init,
+    kinetics,
+):
+    if int(size_img) == 384:
+        assert vis_backbone_size == "large"
+        config_path = './visbackbone/swin_%s_384_patch244_window81212_kinetics600_22k.py' % (vis_backbone_size)
+        if vis_backbone_init == "2d":
+            model_path = f'./_models/swin_transformer/swin_{vis_backbone_size}_patch4_window12_384_22k.pth'
         else:
-            model_path = './_models/video_swin_transformer/swin_%s_384_patch244_window81212_kinetics%s_22k.pth' % (args.vis_backbone_size, args.kinetics)
-    elif args.vis_backbone_size  not in ["tiny", "violet"]:
+            model_path = './_models/video_swin_transformer/swin_%s_384_patch244_window81212_kinetics%s_22k.pth' % (vis_backbone_size, kinetics)
+    elif vis_backbone_size  not in ["tiny", "violet"]:
         # assert args.size_img == 224
-        config_path = './visbackbone/swin_%s_patch244_window877_kinetics400_22k.py' % (args.vis_backbone_size)
-        if args.vis_backbone_init == "2d":
-            model_path = './_models/swin_transformer/swin_%s_patch4_window7_224_22k.pth' % (args.vis_backbone_size)
+        config_path = './visbackbone/swin_%s_patch244_window877_kinetics400_22k.py' % (vis_backbone_size)
+        if vis_backbone_init == "2d":
+            model_path = './_models/swin_transformer/swin_%s_patch4_window7_224_22k.pth' % (vis_backbone_size)
         else:
-            model_path = './_models/video_swin_transformer/swin_%s_patch244_window877_kinetics%s_22k.pth' % (args.vis_backbone_size, args.kinetics)
-    elif args.vis_backbone_size == "tiny":
+            model_path = './_models/video_swin_transformer/swin_%s_patch244_window877_kinetics%s_22k.pth' % (vis_backbone_size, kinetics)
+    elif vis_backbone_size == "tiny":
         # tiny
-        assert args.size_img == 224
-        config_path = './visbackbone/swin_%s_patch244_window877_kinetics400_1k.py' % (args.vis_backbone_size)
-        if args.vis_backbone_init == "2d":
-            model_path = './_models/swin_transformer/swin_%s_patch4_window7_224.pth' % (args.vis_backbone_size)
+        assert size_img == 224
+        config_path = './visbackbone/swin_%s_patch244_window877_kinetics400_1k.py' % (vis_backbone_size)
+        if vis_backbone_init == "2d":
+            model_path = './_models/swin_transformer/swin_%s_patch4_window7_224.pth' % (vis_backbone_size)
         else:
             model_path = './_models/video_swin_transformer/swin_tiny_patch244_window877_kinetics400_1k.pth'
     else:
-        assert args.vis_backbone_size == "violet"
+        assert vis_backbone_size == "violet"
         config_path = 'videoswin/swin_violet_patch244_window877.py'
         model_path = None
-        args.vis_backbone_init = "random"
+        vis_backbone_init = "random"
 
     print(f'video swin (config path): {config_path}')
     cfg = Config.fromfile(config_path)
-    if args.vis_backbone_init == "2d":
+    if vis_backbone_init == "2d":
         print(f'video swin with pre-trained 2d (model path): {model_path}')
         pretrained2d = model_path
-        args.vis_backbone_pretrained_weight = model_path
-    elif args.vis_backbone_init == "random":
+        vis_backbone_pretrained_weight = model_path
+    elif vis_backbone_init == "random":
         print(f'video swin random initialized')
         pretrained2d = None
         model_path = None
-        args.vis_backbone_pretrained_weight = None
+        vis_backbone_pretrained_weight = None
     else:
         print(f'video swin with pre-trained 3d (model path): {model_path}')
         pretrained2d = None
-        args.vis_backbone_pretrained_weight = model_path
+        vis_backbone_pretrained_weight = model_path
 
     video_swin = SwinTransformer3D(
                     pretrained=pretrained2d,
@@ -633,7 +638,7 @@ def get_vidswin_model(args):
                     frozen_stages=-1,
                     use_checkpoint=False)
 
-    if args.vis_backbone_init == "3d" and model_path is not None:
+    if vis_backbone_init == "3d" and model_path is not None:
         state_dict = load_checkpoint_3d(model_path)
         missing, unexpected = video_swin.load_state_dict(
             state_dict, strict=False)
