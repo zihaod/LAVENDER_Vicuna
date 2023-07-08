@@ -94,7 +94,7 @@ class LAVI(nn.Module):
             image = image.to("cpu")
 
         #with self.maybe_autocast():
-        vis_embeds = self.visual_encoder(image).to(device)
+        vis_embeds = self.visual_encoder(image)[0].to(device)
         inputs_llama = self.llama_proj(vis_embeds)
         atts_llama = torch.ones(inputs_llama.size()[:-1], dtype=torch.long).to(image.device)
         return inputs_llama, atts_llama
@@ -160,13 +160,13 @@ class LAVI(nn.Module):
         inputs_embeds = torch.cat([bos_embeds, img_embeds, to_regress_embeds], dim=1)
         attention_mask = torch.cat([atts_bos, atts_img, to_regress_tokens.attention_mask], dim=1)
 
-        with self.maybe_autocast():
-            outputs = self.llama_model(
-                inputs_embeds=inputs_embeds,
-                attention_mask=attention_mask,
-                return_dict=True,
-                labels=targets,
-            )
+        #with self.maybe_autocast():
+        outputs = self.llama_model(
+            inputs_embeds=inputs_embeds,
+            attention_mask=attention_mask,
+            return_dict=True,
+            labels=targets,
+        )
         loss = outputs.loss
 
         return {"loss": loss}
