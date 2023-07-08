@@ -20,7 +20,7 @@ class EncVideo(T.nn.Module):
                         kinetics)
         self.latent_feat_size = self.swin.norm.normalized_shape[0]
         self.img_feature_dim = hidden_size
-        #self.swinbert = getattr(args, 'swinbert', False)
+        self.swinbert = False
         self.max_size_frame = max_size_frame 
         self.max_size_patch = max_size_patch 
 
