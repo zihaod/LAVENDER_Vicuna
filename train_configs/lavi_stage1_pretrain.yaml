@@ -23,6 +23,7 @@ datasets:
   webvid:
     data_type: images
     size_img: 224
+    img_transform: ["img_rand_crop"]
     size_frame: 4
     dataset: webvid2.5m
     split: train
