@@ -92,13 +92,13 @@ class WebVidDataset(Dataset_Base):
 
         return {'image': img, 'text_input': raw_txt}
 
-    def collate_batch(self, inputs):
-        
-        img, txt = map(list, unzip(inputs))
-        all_imgs = T.stack(img, dim=0)
-        all_txts = txt
-
-        batch = {
-            "image": all_imgs, "text_input": all_txts
-            }
-        return batch
+    #def collate_batch(self, inputs):
+    #    
+    #    img, txt = map(list, unzip(inputs))
+    #    all_imgs = T.stack(img, dim=0)
+    #    all_txts = txt   
+    #
+    #    batch = {
+    #        "image": all_imgs, "text_input": all_txts
+    #        }
+    #    return batch
