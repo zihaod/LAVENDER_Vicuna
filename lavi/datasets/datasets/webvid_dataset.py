@@ -90,7 +90,7 @@ class WebVidDataset(Dataset_Base):
             img = T.zeros((_T, _C, _H, _W))
 
 
-        return img, raw_txt
+        return {'image': img, 'text_input': raw_txt}
 
     def collate_batch(self, inputs):
         
