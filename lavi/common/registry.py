@@ -27,12 +27,12 @@ class Registry:
 
         Usage:
 
-            from minigpt4.common.registry import registry
-            from minigpt4.datasets.base_dataset_builder import BaseDatasetBuilder
+            from lavi.common.registry import registry
+            from lavi.datasets.base_dataset_builder import BaseDatasetBuilder
         """
 
         def wrap(builder_cls):
-            from minigpt4.datasets.builders.base_dataset_builder import BaseDatasetBuilder
+            from lavi.datasets.builders.base_dataset_builder import BaseDatasetBuilder
 
             assert issubclass(
                 builder_cls, BaseDatasetBuilder
@@ -59,7 +59,7 @@ class Registry:
 
         Usage:
 
-            from minigpt4.common.registry import registry
+            from lavi.common.registry import registry
         """
 
         def wrap(task_cls):
