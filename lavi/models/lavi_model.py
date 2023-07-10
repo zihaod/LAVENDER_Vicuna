@@ -8,10 +8,11 @@ import torch.nn as nn
 from lavi.common.registry import registry
 from lavi.models.llama_model import LlamaForCausalLM
 from lavi.models.lavender_model import EncVideo
+from lavi.models.base_model import BaseModel
 from transformers import LlamaTokenizer
 
 @registry.register_model("lavi")
-class LAVI(nn.Module):
+class LAVI(BaseModel):
     """
     LAVENDER GPT-LLAMA model.
     """
