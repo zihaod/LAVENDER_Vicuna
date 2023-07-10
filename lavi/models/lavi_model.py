@@ -54,7 +54,7 @@ class LAVI(BaseModel):
             vis_hidden_size, 
         )
         if lavender_model:
-            loaded_state_dict = torch.load(lavender_model, map_location=T.device('cpu'))
+            loaded_state_dict = torch.load(lavender_model, map_location=torch.device('cpu'))
             self.visual_encoder.load_vis_ckpt_from_lavender(loaded_state_dict)
 
         for name, param in self.visual_encoder.named_parameters():
