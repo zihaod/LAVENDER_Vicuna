@@ -1,0 +1,12 @@
+datasets:
+  webvid:
+    data_type: images
+    #build_info:
+    #  storage: /path/to/webvid2.5M/
+    size_img: 224
+    img_transform: ["img_rand_crop"]
+    size_frame: 4
+    dataset: webvid2.5m
+    split: train
+    data_dir: '/content/drive/MyDrive/_pretrain'
+    part: 1
