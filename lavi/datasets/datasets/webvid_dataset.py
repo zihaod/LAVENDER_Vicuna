@@ -2,7 +2,7 @@ from lavi.utils.lib import *
 from lavi.datasets.datasets.vid_base_dataset import Dataset_Base
 
 
-class Dataset_Pretrain(Dataset_Base):
+class WebVidDataset(Dataset_Base):
     def __init__(self, size_img, img_transform, size_frame, dataset, split, 
                  data_dir, part=None):
         super().__init__(size_img, img_transform, split=split,
