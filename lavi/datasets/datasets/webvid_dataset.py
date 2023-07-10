@@ -9,7 +9,7 @@ class WebVidDataset(Dataset_Base):
                          size_frame=size_frame)
 
         self.dataset, self.part = dataset, part
-        self.size_img, self.size_frame = size_img, size_frame
+        #self.size_img, self.size_frame = size_img, size_frame
         if data_dir is not None:
             self.data_dir = data_dir
         else:
