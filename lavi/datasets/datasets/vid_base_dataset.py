@@ -3,7 +3,7 @@ from lavi.datasets.datasets.base_dataset import BaseDataset
 
 
 from lavi.utils.lib import *
-from visbackbone.video_transform import (
+from lavi.models.visbackbone.video_transform import (
     Normalize, Resize, CenterCrop,  ClipToTensor,
     RandomCrop, Compose)
 
