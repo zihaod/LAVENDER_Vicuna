@@ -42,7 +42,7 @@ class WebVidBuilder(BaseDatasetBuilder):
                 data_dir=self.config.data_dir, 
                 part=self.config.part
             )
-        elif isinstance(self.config.part, list):
+        else: #part should be int list
             all_datasets = []
             for i in self.config.part:
                 all_datasets.append(
@@ -58,8 +58,7 @@ class WebVidBuilder(BaseDatasetBuilder):
                     )
                 )
             datasets['train'] = torch.utils.data.ConcatDataset(all_datasets)
-        else:
-            raise Exception("dataset part should be either int or int list.")
+    
             
 
         return datasets
