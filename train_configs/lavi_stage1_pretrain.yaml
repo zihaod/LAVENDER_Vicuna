@@ -48,7 +48,7 @@ run:
   iters_per_epoch: 5000
 
   seed: 42
-  output_dir: "output/lavi_stage1_pretrain"
+  output_dir: "/content/drive/MyDrive/model_weights/lavi"
 
   amp: True
   resume_ckpt_path: null
