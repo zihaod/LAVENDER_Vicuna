@@ -18,7 +18,7 @@ class LAVI(BaseModel):
     """
 
     PRETRAINED_MODEL_CONFIG_DICT = {
-        "pretrain_lavi": "configs/models/lavi.yaml",
+        "pretrain_vicuna": "configs/models/lavi.yaml",
     }
 
     def __init__(
