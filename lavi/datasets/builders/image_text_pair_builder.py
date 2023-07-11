@@ -42,7 +42,7 @@ class WebVidBuilder(BaseDatasetBuilder):
                 data_dir=self.config.data_dir, 
                 part=self.config.part
             )
-        elif isinstance(self.config.part, List[int]):
+        elif isinstance(self.config.part, list):
             all_datasets = []
             for i in self.config.part:
                 all_datasets.append(
