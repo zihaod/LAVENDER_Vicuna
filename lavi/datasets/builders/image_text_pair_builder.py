@@ -1,6 +1,7 @@
 import os
 import logging
 import warnings
+import torch
 
 from lavi.common.registry import registry
 from lavi.datasets.builders.base_dataset_builder import BaseDatasetBuilder
@@ -30,15 +31,34 @@ class WebVidBuilder(BaseDatasetBuilder):
 
         # create datasets
         dataset_cls = self.train_dataset_cls
-        datasets['train'] = dataset_cls(
-            size_img=self.config.size_img, 
-            img_transform=self.config.img_transform,
-            size_frame=self.config.size_frame, 
-            #txt=self.config.txt, 
-            dataset=self.config.dataset, 
-            split=self.config.split, 
-            data_dir=self.config.data_dir, 
-            part=self.config.part
-        )
+        if isinstance(self.config.part, int):
+            datasets['train'] = dataset_cls(
+                size_img=self.config.size_img, 
+                img_transform=self.config.img_transform,
+                size_frame=self.config.size_frame, 
+                #txt=self.config.txt, 
+                dataset=self.config.dataset, 
+                split=self.config.split, 
+                data_dir=self.config.data_dir, 
+                part=self.config.part
+            )
+        elif isinstance(self.config.part, list):
+            all_datasets = []
+            for i in self.config.part:
+                all_datasets.append(
+                    dataset_cls(
+                        size_img=self.config.size_img, 
+                        img_transform=self.config.img_transform,
+                        size_frame=self.config.size_frame, 
+                        #txt=self.config.txt, 
+                        dataset=self.config.dataset, 
+                        split=self.config.split, 
+                        data_dir=self.config.data_dir, 
+                        part=i
+                    )
+                )
+            datasets['train'] = torch.utils.data.ConcatDataset(all_datasets)
+        else:
+            
 
         return datasets
