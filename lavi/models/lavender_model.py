@@ -1,5 +1,5 @@
 from lavi.utils.lib import *
-from lavi.models.visbackbone.video_swin import get_vidswin_model
+from visbackbone.video_swin import get_vidswin_model
 
 class EncVideo(T.nn.Module):
 
