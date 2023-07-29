@@ -59,7 +59,9 @@ class WebVidBuilder(BaseDatasetBuilder):
                     )
                 )
             datasets['train'] = torch.utils.data.ConcatDataset(all_datasets)
-       return datasets
+  
+        return datasets
+        
 
 @registry.register_builder("cc3m")
 class CC3MBuilder(BaseDatasetBuilder):
@@ -111,7 +113,5 @@ class CC3MBuilder(BaseDatasetBuilder):
                     )
                 )
             datasets['train'] = torch.utils.data.ConcatDataset(all_datasets)
-    
-            
-
+  
         return datasets
