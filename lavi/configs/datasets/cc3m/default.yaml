@@ -1,5 +1,5 @@
 datasets:
-  webvid:
+  cc3m:
     data_type: images
     #build_info:
     size_img: 224
